@@ -32,10 +32,12 @@
 #if ARDUINO >= 100
  #include "Arduino.h"
 #else
- #include "WProgram.h"
+//  #include "WProgram.h"
+#include "i2c.h"
 #endif
 
-#include <Wire.h>
+#define delay(x) HAL_Delay(x)
+// #include <Wire.h>
 
 #define PN532_PREAMBLE                      (0x00)
 #define PN532_STARTCODE1                    (0x00)
@@ -90,7 +92,8 @@
 #define PN532_SPI_DATAREAD                  (0x03)
 #define PN532_SPI_READY                     (0x01)
 
-#define PN532_I2C_ADDRESS                   (0x48 >> 1)
+#define PN532_I2C_ADDRESS_7BIT              (0x48 >> 1)
+#define PN532_I2C_ADDRESS_8BIT              (0x48)
 #define PN532_I2C_READBIT                   (0x01)
 #define PN532_I2C_BUSY                      (0x00)
 #define PN532_I2C_READY                     (0x01)
@@ -154,24 +157,36 @@
 #define PN532_GPIO_P34                      (4)
 #define PN532_GPIO_P35                      (5)
 
+class STM32_Pin {
+public:
+  STM32_Pin(GPIO_TypeDef *port, uint16_t pin) : Port(port), Pin(pin) {}
+  STM32_Pin(const STM32_Pin &other) {
+    Port = other.Port;
+    Pin = other.Pin;
+  }
+  GPIO_TypeDef *Port;
+  uint16_t Pin;
+};
+
 class Adafruit_NFCShield_I2C{
  public:
-  Adafruit_NFCShield_I2C(uint8_t irq, uint8_t reset);
+  // Adafruit_NFCShield_I2C(uint8_t irq, uint8_t reset);
+  Adafruit_NFCShield_I2C(STM32_Pin &irq, STM32_Pin &reset);
   void begin(void);
   
   // Generic PN532 functions
-  boolean SAMConfig(void);
+  bool SAMConfig(void);
   uint32_t getFirmwareVersion(void);
-  boolean sendCommandCheckAck(uint8_t *cmd, uint8_t cmdlen, uint16_t timeout = 1000);  
-  boolean writeGPIO(uint8_t pinstate);
+  bool sendCommandCheckAck(uint8_t *cmd, uint8_t cmdlen, uint16_t timeout = 1000);  
+  bool writeGPIO(uint8_t pinstate);
   uint8_t readGPIO(void);
-  boolean setPassiveActivationRetries(uint8_t maxRetries);
+  bool setPassiveActivationRetries(uint8_t maxRetries);
   
   // ISO14443A functions
-  boolean inListPassiveTarget();
-  boolean readPassiveTargetID(uint8_t cardbaudrate, uint8_t * uid, uint8_t * uidLength, uint16_t timeout = 0); //timeout 0 means no timeout - will block forever.
+  bool inListPassiveTarget();
+  bool readPassiveTargetID(uint8_t cardbaudrate, uint8_t * uid, uint8_t * uidLength, uint16_t timeout = 0); //timeout 0 means no timeout - will block forever.
 
-  boolean inDataExchange(uint8_t * send, uint8_t sendLength, uint8_t * response, uint8_t * responseLength);
+  bool inDataExchange(uint8_t * send, uint8_t sendLength, uint8_t * response, uint8_t * responseLength);
   
   // Mifare Classic functions
   bool mifareclassic_IsFirstBlock (uint32_t uiBlock);
@@ -190,17 +205,17 @@ class Adafruit_NFCShield_I2C{
   static void PrintHexChar(const byte * pbtData, const uint32_t numBytes);
 
  private:
-  uint8_t _irq, _reset;
+  STM32_Pin _irq, _reset;
   uint8_t _uid[7];  // ISO14443A uid
   uint8_t _uidLen;  // uid len
   uint8_t _key[6];  // Mifare Classic key
   uint8_t inListedTag; // Tg number of inlisted tag.
 
-  boolean readackframe(void);
+  bool readackframe(void);
   uint8_t wirereadstatus(void);
-  void    wirereaddata(uint8_t* buff, uint8_t n);
-  void    wiresendcommand(uint8_t* cmd, uint8_t cmdlen);
-  boolean waitUntilReady(uint16_t timeout);
+  void wirereaddata(uint8_t* buff, uint8_t n);
+  void wiresendcommand(uint8_t* cmd, uint8_t cmdlen);
+  bool waitUntilReady(uint16_t timeout);
 };
 
 #endif
