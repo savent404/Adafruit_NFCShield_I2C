@@ -34,6 +34,9 @@
 #else
 //  #include "WProgram.h"
 #include "i2c.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #endif
 
 #define delay(x) HAL_Delay(x)
@@ -157,21 +160,53 @@
 #define PN532_GPIO_P34                      (4)
 #define PN532_GPIO_P35                      (5)
 
-class STM32_Pin {
-public:
-  STM32_Pin(GPIO_TypeDef *port, uint16_t pin) : Port(port), Pin(pin) {}
-  STM32_Pin(const STM32_Pin &other) {
-    Port = other.Port;
-    Pin = other.Pin;
+/*
+// Usage for get Card's UID
+  Adafruit_NFCShield_I2C nfc(
+    Adafruit_NFCShield_I2C::STM32_Pin(GPIOB, GPIO_PIN_4),
+    Adafruit_NFCShield_I2C::STM32_Pin(GPIOB, GPIO_PIN_5),
+    &hi2c1);
+
+  nfc.begin();
+  
+  // Check PN532 is ready
+  while (nfc.getFirmwareVersion() == 0)
+    HAL_Delay(1);
+  
+  // Set the max number of retry attempts to read from a card
+  nfc.setPassiveActivationRetries(0x02);
+
+  // configure board to read RFID tags
+  nfc.SAMConfig();
+
+  while (1) {
+    static uint8_t uid[7];
+    static uint8_t uidLen;
+
+    if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLen)) {
+      // Get id
+      HAL_Delay(10);
+    }
+
+    // Do other things
+    HAL_Delay(10);
   }
-  GPIO_TypeDef *Port;
-  uint16_t Pin;
-};
+*/
 
 class Adafruit_NFCShield_I2C{
  public:
+  class STM32_Pin {
+  public:
+    STM32_Pin(GPIO_TypeDef *port, uint16_t pin) : Port(port), Pin(pin) {}
+    STM32_Pin(const STM32_Pin &other) {
+      Port = other.Port;
+      Pin = other.Pin;
+    }
+    GPIO_TypeDef *Port;
+    uint16_t Pin;
+  };
   // Adafruit_NFCShield_I2C(uint8_t irq, uint8_t reset);
-  Adafruit_NFCShield_I2C(STM32_Pin &irq, STM32_Pin &reset);
+  Adafruit_NFCShield_I2C(const STM32_Pin &irq, const STM32_Pin &reset, I2C_HandleTypeDef* handle);
   void begin(void);
   
   // Generic PN532 functions
@@ -201,11 +236,12 @@ class Adafruit_NFCShield_I2C{
   uint8_t mifareultralight_ReadPage (uint8_t page, uint8_t * buffer);
   
   // Help functions to display formatted text
-  static void PrintHex(const byte * data, const uint32_t numBytes);
-  static void PrintHexChar(const byte * pbtData, const uint32_t numBytes);
+  static void PrintHex(const uint8_t * data, const uint32_t numBytes);
+  static void PrintHexChar(const uint8_t * pbtData, const uint32_t numBytes);
 
  private:
   STM32_Pin _irq, _reset;
+  I2C_HandleTypeDef* _handle;
   uint8_t _uid[7];  // ISO14443A uid
   uint8_t _uidLen;  // uid len
   uint8_t _key[6];  // Mifare Classic key
@@ -216,6 +252,9 @@ class Adafruit_NFCShield_I2C{
   void wirereaddata(uint8_t* buff, uint8_t n);
   void wiresendcommand(uint8_t* cmd, uint8_t cmdlen);
   bool waitUntilReady(uint16_t timeout);
+
+  bool write(uint8_t *, size_t);
+  bool read(uint8_t*, size_t);
 };
 
 #endif
